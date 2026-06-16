@@ -5,7 +5,7 @@ import sys
 
 BROKER_IP = "157.173.101.159"  # Your VPS IP address
 PORT = 1883
-TOPIC = "temperature/monitoring"
+TOPIC = "exam/izere_joshua/temperature"
 
 def on_connect(client, userdata, flags, rc, properties=None):
     # rc is the connection result code

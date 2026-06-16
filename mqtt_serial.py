@@ -10,7 +10,7 @@ import sys
 # CONFIGURATION
 MQTT_BROKER = "157.173.101.159"  # Your VPS IP address
 MQTT_PORT = 1883
-MQTT_TOPIC = "temperature/monitoring"
+MQTT_TOPIC = "exam/izere_joshua/temperature"
 BAUD_RATE = 9600
 
 def detect_serial_port():
