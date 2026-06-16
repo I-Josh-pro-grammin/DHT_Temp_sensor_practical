@@ -18,11 +18,20 @@ def detect_serial_port():
     if not ports:
         return None
     
-    # Try to find Arduino or common USB-to-Serial chips
+    # 1. Try to find Arduino or USB-to-Serial chips specifically, excluding Bluetooth
     for p in ports:
         desc = p.description.lower()
-        if "arduino" in desc or "ch340" in desc or "usb" in desc or "serial" in desc:
+        if "bluetooth" in desc or "bt link" in desc:
+            continue
+        if "arduino" in desc or "ch340" in desc or "usb" in desc or "usb-to-serial" in desc:
             return p.device
+            
+    # 2. General fallback excluding Bluetooth
+    for p in ports:
+        desc = p.description.lower()
+        if "bluetooth" not in desc and "bt link" not in desc:
+            return p.device
+            
     return ports[0].device
 
 def main():
