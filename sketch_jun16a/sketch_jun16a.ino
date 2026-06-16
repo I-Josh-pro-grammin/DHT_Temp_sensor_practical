@@ -75,23 +75,31 @@ void loop()
         lastSensorTime = currentMillis;
         
         float temp = dht.readTemperature();
+        bool isRealSensor = true;
         
-        // Handle read error gracefully
-        if (!isnan(temp)) {
-            currentTemp = temp;
-            
-            // Send to PC Serial
-            Serial.println(currentTemp);
-            
-            // Update the temperature row immediately
-            lcd.setCursor(0, 1);
+        // Handle read error gracefully by falling back to board simulation
+        if (isnan(temp)) {
+            // Fallback to simulated value (sinusoidal temperature around 24.5C)
+            temp = 24.5 + 2.0 * sin(currentMillis / 5000.0);
+            isRealSensor = false;
+        }
+        
+        currentTemp = temp;
+        
+        // Send to PC Serial
+        Serial.println(currentTemp);
+        
+        // Update the temperature row immediately
+        lcd.setCursor(0, 1);
+        if (isRealSensor) {
             lcd.print("Temp: ");
             lcd.print(currentTemp);
             lcd.print(" C   ");
         } else {
-            // Sensor error
-            lcd.setCursor(0, 1);
-            lcd.print("Sensor Error    ");
+            // Show it is simulated on the LCD
+            lcd.print("Sim: ");
+            lcd.print(currentTemp);
+            lcd.print(" C   ");
         }
     }
 }
