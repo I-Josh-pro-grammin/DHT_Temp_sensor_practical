@@ -1,4 +1,5 @@
-#include <LiquidCrystal.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 #include <DHT.h>
 
 #define DHTPIN 7
@@ -6,8 +7,8 @@
 
 DHT dht(DHTPIN, DHTTYPE);
 
-// LCD pins: RS, EN, D4, D5, D6, D7
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+// I2C LCD address: typically 0x27 or 0x3F for 16x2 displays
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // EDIT THIS: Enter candidate name (if > 16 chars, it will scroll automatically)
 String candidateName = "IZERE JOSHUA - SPE CANDIDATE"; 
@@ -26,7 +27,11 @@ float currentTemp = 0.0;
 void setup()
 {
     Serial.begin(9600);
-    lcd.begin(16, 2);
+    
+    // Initialize the I2C LCD
+    lcd.init();
+    lcd.backlight();
+    
     dht.begin();
 
     // Prepare scroll text: add space padding at the end for wrapping
