@@ -56,9 +56,7 @@ def main():
         print(f"[SERIAL] Detected serial port: {port}")
         try:
             ser = serial.Serial(port, BAUD_RATE, timeout=1)
-            ser.dtr = True
-            ser.rts = True
-            time.sleep(2)  # Wait for Arduino to reset
+            time.sleep(2)  # Wait for Arduino to initialize
             print(f"[SERIAL] Successfully connected to Arduino on {port}")
         except Exception as e:
             print(f"[SERIAL ERROR] Could not open {port}: {e}")
@@ -77,19 +75,18 @@ def main():
     try:
         while True:
             if not simulation_mode and ser is not None:
-                if ser.in_waiting:
-                    try:
-                        line = ser.readline().decode('utf-8', errors='ignore').strip()
-                        if line:
-                            print(f"[SERIAL DEBUG] Raw Line: '{line}'")
-                            # Validate if we received a numerical temperature reading
-                            temp = float(line)
-                            publish_temp(client, temp, broker_ip)
-                    except ValueError:
-                        print(f"[SERIAL DEBUG] Ignored non-numeric: '{line}'")
-                    except Exception as e:
-                        print(f"[ERROR] Serial read failed: {e}")
-                time.sleep(0.1) # Prevent CPU throttling
+                try:
+                    # readline() blocks until a line is received or timeout (1s) expires
+                    line = ser.readline().decode('utf-8', errors='ignore').strip()
+                    if line:
+                        print(f"[SERIAL DEBUG] Raw Line: '{line}'")
+                        temp = float(line)
+                        publish_temp(client, temp, broker_ip)
+                except ValueError:
+                    print(f"[SERIAL DEBUG] Ignored non-numeric: '{line}'")
+                except Exception as e:
+                    print(f"[ERROR] Serial read failed: {e}")
+                    time.sleep(1)  # Wait before retrying on read error
             else:
                 # Simulation mode
                 temp = round(random.uniform(22.0, 29.5), 2)
