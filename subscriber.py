@@ -3,7 +3,7 @@ from paho.mqtt.enums import CallbackAPIVersion
 from datetime import datetime
 import sys
 
-BROKER_IP = "localhost"  # Change to your VPS IP when ready!
+BROKER_IP = "157.173.101.159"  # Your VPS IP address
 PORT = 1883
 TOPIC = "temperature/monitoring"
 
