@@ -26,23 +26,17 @@ This project is a complete solution for the **SPE (Embedded Systems Software Int
 
 ## 2. Hardware Wiring Instructions
 
-Connect the **DHT11 Sensor** and the **16x2 LCD Display** to the **Arduino Uno** according to the following pin map:
+Connect the **DHT11 Sensor** and the **16x2 I2C LCD Display** to the **Arduino Uno** according to the following pin map:
 
-### LCD Display (16x2) Wiring
-| LCD Pin | Arduino Uno Pin | Description |
+### I2C LCD Display (16x2) Wiring
+| LCD I2C Pin | Arduino Uno Pin | Description |
 | :--- | :--- | :--- |
-| **VSS** | GND | Ground |
-| **VDD** | 5V | Power (5V) |
-| **VO** | Potentiometer / GND | Contrast Adjustment |
-| **RS** | D12 | Register Select |
-| **RW** | GND | Read/Write (Write mode) |
-| **E** | D11 | Enable |
-| **D4** | D5 | Data Bit 4 |
-| **D5** | D4 | Data Bit 5 |
-| **D6** | D3 | Data Bit 6 |
-| **D7** | D2 | Data Bit 7 |
-| **A** | 5V (via 220Ω resistor) | Backlight Anode |
-| **K** | GND | Backlight Cathode |
+| **GND** | GND | Ground |
+| **VCC** | 5V | Power (5V) |
+| **SDA** | A4 (or dedicated SDA pin) | I2C Data Line |
+| **SCL** | A5 (or dedicated SCL pin) | I2C Clock Line |
+
+*Note: The blue potentiometer on the back of the I2C LCD module board adjusts the screen contrast. Turn it with a small screwdriver if the screen shows white blocks or nothing.*
 
 ### DHT11 Temperature Sensor Wiring
 | DHT11 Pin | Arduino Uno Pin | Description |
