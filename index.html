@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Temperature Monitoring Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.4);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 1100px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @media (min-width: 768px) {
+            .dashboard-container {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .config-section h2, .main-section h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+
+        .btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary), #2563eb);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.85rem;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px var(--primary-glow);
+            filter: brightness(1.1);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.disconnect {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            box-shadow: 0 4px 12px var(--danger-glow);
+        }
+
+        .btn.disconnect:hover {
+            box-shadow: 0 6px 16px var(--danger-glow);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 1rem;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            transition: all 0.3s;
+        }
+
+        .status-badge.connected {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-badge.connected .status-dot {
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 992px) {
+            .main-grid {
+                grid-template-columns: 280px 1fr;
+            }
+        }
+
+        .readout-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2rem;
+            min-height: 220px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .readout-card::before {
+            content: '';
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: var(--primary);
+            filter: blur(80px);
+            opacity: 0.15;
+            top: -20px;
+            left: -20px;
+            transition: all 0.5s ease;
+        }
+
+        .readout-card.hot::before {
+            background: var(--danger);
+        }
+
+        .readout-card.cold::before {
+            background: #06b6d4;
+        }
+
+        .temp-value-wrapper {
+            position: relative;
+            margin: 1rem 0;
+        }
+
+        .temp-value {
+            font-size: 4.5rem;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -2px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .temp-unit {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: absolute;
+            top: 5px;
+            right: -25px;
+        }
+
+        .temp-status-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+            transition: color 0.5s ease;
+        }
+
+        .chart-container {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 2rem 0;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--success);
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .connected .status-dot {
+            animation: pulse-success 1.5s infinite;
+        }
+
+        @keyframes pulse-success {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Temperature Monitoring System</h1>
+        <p>SPE Embedded Software Integration Practical Exam</p>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Configuration Card -->
+        <div class="card">
+            <div class="config-section">
+                <h2>Connection Panel</h2>
+                
+                <div class="input-group">
+                    <label for="mqtt-host">MQTT Broker IP / Host</label>
+                    <input type="text" id="mqtt-host" value="localhost" placeholder="e.g. 192.168.1.100 or broker.hivemq.com">
+                </div>
+
+                <div class="input-group">
+                    <label for="mqtt-port">WebSocket Port</label>
+                    <input type="number" id="mqtt-port" value="9001" placeholder="e.g. 9001 or 8083">
+                </div>
+
+                <div class="input-group">
+                    <label for="mqtt-topic">MQTT Topic</label>
+                    <input type="text" id="mqtt-topic" value="temperature/monitoring" placeholder="e.g. temp/sensor">
+                </div>
+
+                <button id="connect-btn" class="btn">Connect</button>
+
+                <div id="status-badge" class="status-badge">
+                    <div class="status-dot"></div>
+                    <span id="status-text">Disconnected</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizer Card -->
+        <div class="card">
+            <div class="main-section">
+                <h2>Real-time Telemetry Dashboard</h2>
+                
+                <div class="main-grid">
+                    <!-- Readout -->
+                    <div id="readout-card" class="readout-card">
+                        <span style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; text-transform: uppercase;">Current Temp</span>
+                        <div class="temp-value-wrapper">
+                            <span id="temp-display" class="temp-value">--.-</span>
+                            <span class="temp-unit">°C</span>
+                        </div>
+                        <span id="temp-status" class="temp-status-text">No Data</span>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="chart-container">
+                        <canvas id="temp-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Developed by <strong>IZERE Joshua</strong> &copy; 2026. Hosted via GitHub Pages.</p>
+    </footer>
+
+    <script>
+        let client = null;
+        let chart = null;
+        const maxDataPoints = 20;
+        const tempHistory = [];
+        const labelHistory = [];
+
+        // DOM elements
+        const connectBtn = document.getElementById('connect-btn');
+        const hostInput = document.getElementById('mqtt-host');
+        const portInput = document.getElementById('mqtt-port');
+        const topicInput = document.getElementById('mqtt-topic');
+        const statusBadge = document.getElementById('status-badge');
+        const statusText = document.getElementById('status-text');
+        const tempDisplay = document.getElementById('temp-display');
+        const tempStatus = document.getElementById('temp-status');
+        const readoutCard = document.getElementById('readout-card');
+
+        // Initialize Chart
+        function initChart() {
+            const ctx = document.getElementById('temp-chart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labelHistory,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: tempHistory,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#3b82f6',
+                        pointBorderColor: '#ffffff',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        y: {
+                            suggestedMin: 15,
+                            suggestedMax: 35,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Toggle Connection
+        connectBtn.addEventListener('click', () => {
+            if (client && client.connected) {
+                disconnectMQTT();
+            } else {
+                connectMQTT();
+            }
+        });
+
+        function connectMQTT() {
+            const host = hostInput.value.trim();
+            const port = portInput.value.trim();
+            const topic = topicInput.value.trim();
+
+            if (!host || !port || !topic) {
+                alert('Please enter all MQTT connection details.');
+                return;
+            }
+
+            // Update UI to connecting
+            connectBtn.innerText = 'Connecting...';
+            connectBtn.disabled = true;
+
+            // Connect options
+            // In the browser, MQTT.js connects via WebSocket, so we use ws:// or wss:// protocols
+            const url = `ws://${host}:${port}/mqtt`;
+            console.log(`Connecting to MQTT WebSocket: ${url}`);
+
+            try {
+                client = mqtt.connect(url, {
+                    connectTimeout: 5000,
+                    reconnectPeriod: 2000
+                });
+
+                client.on('connect', () => {
+                    console.log('Connected to MQTT broker via WebSockets!');
+                    statusBadge.classList.add('connected');
+                    statusText.innerText = 'Connected';
+                    connectBtn.innerText = 'Disconnect';
+                    connectBtn.className = 'btn disconnect';
+                    connectBtn.disabled = false;
+                    
+                    client.subscribe(topic, (err) => {
+                        if (err) {
+                            console.error('Subscription error:', err);
+                        } else {
+                            console.log(`Subscribed to topic: ${topic}`);
+                        }
+                    });
+                });
+
+                client.on('message', (topicReceived, payload) => {
+                    const message = payload.toString();
+                    console.log(`Message received on [${topicReceived}]: ${message}`);
+                    const temp = parseFloat(message);
+                    if (!isNaN(temp)) {
+                        updateTelemetry(temp);
+                    }
+                });
+
+                client.on('close', () => {
+                    console.log('MQTT Connection closed.');
+                    handleDisconnect();
+                });
+
+                client.on('error', (err) => {
+                    console.error('MQTT connection error:', err);
+                    client.end();
+                    handleDisconnect();
+                });
+
+            } catch (err) {
+                console.error('Failed to instantiate MQTT client:', err);
+                handleDisconnect();
+            }
+        }
+
+        function disconnectMQTT() {
+            if (client) {
+                client.end();
+            }
+            handleDisconnect();
+        }
+
+        function handleDisconnect() {
+            statusBadge.classList.remove('connected');
+            statusText.innerText = 'Disconnected';
+            connectBtn.innerText = 'Connect';
+            connectBtn.className = 'btn';
+            connectBtn.disabled = false;
+            client = null;
+        }
+
+        function updateTelemetry(temp) {
+            // Update Text
+            tempDisplay.innerText = temp.toFixed(1);
+            
+            // Determine range styling
+            readoutCard.className = 'readout-card'; // clear previous
+            if (temp >= 28.0) {
+                tempStatus.innerText = 'Hot';
+                tempStatus.style.color = 'var(--danger)';
+                readoutCard.classList.add('hot');
+                chart.data.datasets[0].borderColor = '#ef4444';
+                chart.data.datasets[0].pointBackgroundColor = '#ef4444';
+            } else if (temp <= 18.0) {
+                tempStatus.innerText = 'Cold';
+                tempStatus.style.color = '#06b6d4';
+                readoutCard.classList.add('cold');
+                chart.data.datasets[0].borderColor = '#06b6d4';
+                chart.data.datasets[0].pointBackgroundColor = '#06b6d4';
+            } else {
+                tempStatus.innerText = 'Comfortable';
+                tempStatus.style.color = 'var(--success)';
+                chart.data.datasets[0].borderColor = '#10b981';
+                chart.data.datasets[0].pointBackgroundColor = '#10b981';
+            }
+
+            // Update Chart history
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            if (tempHistory.length >= maxDataPoints) {
+                tempHistory.shift();
+                labelHistory.shift();
+            }
+            
+            tempHistory.push(temp);
+            labelHistory.push(timeStr);
+            
+            chart.update();
+        }
+
+        // Initialize dashboard
+        window.addEventListener('load', () => {
+            initChart();
+            
+            // Check if loaded from a URL containing query parameters (e.g. ?host=myhost)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('host')) hostInput.value = urlParams.get('host');
+            if (urlParams.has('port')) portInput.value = urlParams.get('port');
+            if (urlParams.has('topic')) topicInput.value = urlParams.get('topic');
+            
+            console.log('Telemetry Dashboard Initialized.');
+        });
+    </script>
+</body>
+</html>

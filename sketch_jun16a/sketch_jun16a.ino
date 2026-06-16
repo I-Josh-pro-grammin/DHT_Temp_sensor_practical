@@ -6,58 +6,100 @@
 
 DHT dht(DHTPIN, DHTTYPE);
 
-LiquidCrystal lcd(12,11,5,4,3,2);
+// LCD pins: RS, EN, D4, D5, D6, D7
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
-String candidateName = "Your Full Candidate Name";
+// EDIT THIS: Enter candidate name (if > 16 chars, it will scroll automatically)
+String candidateName = "IZERE JOSHUA - SPE CANDIDATE"; 
 
+String scrollText = "";
 int scrollPos = 0;
+
+unsigned long lastScrollTime = 0;
+const unsigned long scrollInterval = 350; // Scroll speed in ms
+
+unsigned long lastSensorTime = 0;
+const unsigned long sensorInterval = 2000; // Sensor read interval in ms
+
+float currentTemp = 0.0;
 
 void setup()
 {
     Serial.begin(9600);
-
-    lcd.begin(16,2);
-
+    lcd.begin(16, 2);
     dht.begin();
+
+    // Prepare scroll text: add space padding at the end for wrapping
+    if (candidateName.length() > 16) {
+        scrollText = candidateName + "    ";
+    }
+
+    // Initial display
+    updateDisplay();
 }
 
 void loop()
 {
-    float temperature = dht.readTemperature();
+    unsigned long currentMillis = millis();
 
-    String scrollText = candidateName + "    ";
-
-    lcd.setCursor(0,0);
-
-    if(candidateName.length() > 16)
-    {
-        lcd.print(
-          scrollText.substring(
-             scrollPos,
-             scrollPos + 16
-          )
-        );
-
-        scrollPos++;
-
-        if(scrollPos >
-           scrollText.length()-16)
-        {
-            scrollPos = 0;
+    // 1. Smooth horizontal scroll for Candidate Name (Row 1)
+    if (candidateName.length() > 16) {
+        if (currentMillis - lastScrollTime >= scrollInterval) {
+            lastScrollTime = currentMillis;
+            
+            lcd.setCursor(0, 0);
+            lcd.print(scrollText.substring(scrollPos, scrollPos + 16));
+            
+            scrollPos++;
+            if (scrollPos > scrollText.length() - 16) {
+                scrollPos = 0; // Wrap scroll
+            }
+        }
+    } else {
+        // If 16 chars or less, show static name left-aligned
+        lcd.setCursor(0, 0);
+        lcd.print(candidateName);
+        // Pad the rest of the line with spaces
+        for (int i = candidateName.length(); i < 16; i++) {
+            lcd.print(" ");
         }
     }
-    else
-    {
+
+    // 2. Read temperature and send to Serial every 2 seconds
+    if (currentMillis - lastSensorTime >= sensorInterval) {
+        lastSensorTime = currentMillis;
+        
+        float temp = dht.readTemperature();
+        
+        // Handle read error gracefully
+        if (!isnan(temp)) {
+            currentTemp = temp;
+            
+            // Send to PC Serial
+            Serial.println(currentTemp);
+            
+            // Update the temperature row immediately
+            lcd.setCursor(0, 1);
+            lcd.print("Temp: ");
+            lcd.print(currentTemp);
+            lcd.print(" C   ");
+        } else {
+            // Sensor error
+            lcd.setCursor(0, 1);
+            lcd.print("Sensor Error    ");
+        }
+    }
+}
+
+// Initial display draw helper
+void updateDisplay() {
+    lcd.setCursor(0, 0);
+    if (candidateName.length() > 16) {
+        lcd.print(candidateName.substring(0, 16));
+    } else {
         lcd.print(candidateName);
     }
-
-    lcd.setCursor(0,1);
-
-    lcd.print("Temp:");
-    lcd.print(temperature);
-    lcd.print("C   ");
-
-    Serial.println(temperature);
-
-    delay(1000);
+    
+    lcd.setCursor(0, 1);
+    lcd.print("Initializing...");
 }
